@@ -23,6 +23,6 @@
         /// This value should be updated whenever a new version of the plugin is released.
         /// It is recommended to follow semantic versioning (e.g., "1.0.0", "1.2.3").
         /// </summary>
-        public const string PLUGIN_VERSION = "0.0.1";
+        public const string PLUGIN_VERSION = "0.0.2";
     }
 }

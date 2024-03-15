@@ -45,7 +45,7 @@ namespace LethalCompany.Mods
             // Bind the AutoClearDistance configuration entry
             // Default value: 5f
             // Description: The distance threshold for auto-clearing the line when the player is near the main entrance
-            AutoClearDistance = config.Bind("General", "AutoClearDistance", 5f, "The distance threshold for auto-clearing the line when the player is near the main entrance.");
+            AutoClearDistance = config.Bind("General", "AutoClearDistance", 2.5f, "The distance threshold for auto-clearing the line when the player is near the main entrance.");
 
             // Bind the DynamicLineRedraw configuration entry
             // Default value: false
