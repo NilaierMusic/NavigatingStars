@@ -24,7 +24,7 @@ The mod provides the following configuration options:
 - `ToggleKey`: The key to press for drawing the line (default: 'T').
 - `LineWidth`: The width of the drawn line as a float (default: 0.1).
 - `LineColor`: The color of the drawn line in HEX (default: green).
-- `AutoClearDistance`: The distance threshold for auto-clearing the line when the player is near the main entrance (default: 5).
+- `AutoClearDistance`: The distance threshold for auto-clearing the line when the player is near the main entrance (default: 2.5).
 - `DynamicLineRedraw`: Determines whether the line should be redrawn dynamically based on the player's position (default: true).
 
 You can modify these values in the configuration file located at `BepInEx/config/NavigatingStars.cfg`.
