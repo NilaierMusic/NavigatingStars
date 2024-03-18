@@ -13,11 +13,7 @@ Navigating Stars is a client-side mod for the game Lethal Company. This mod allo
 ## Installation
 
 1. Make sure you have BepInEx installed for Lethal Company.
-<<<<<<< HEAD
-2. Download the latest release of the Navigating Stars mod from the [Thunderstore,](https://thunderstore.io/c/lethal-company/p/Nilaier/NavigatingStars/) [NexusMods,](https://www.nexusmods.com/lethalcompany/mods/199) or [Releases page.](https://github.com/NilaierMusic/NavigatingStars/releases)
-=======
 2. Download the latest release of the Navigating Stars mod from the [Thunderstore,](https://thunderstore.io/c/lethal-company/p/Nilaier/NavigatingStars/) [NexusMods,](https://www.nexusmods.com/lethalcompany/mods/199/) or [Releases page.](https://github.com/NilaierMusic/NavigatingStars/releases)
->>>>>>> 4c85db486f6103c2dcb803e28eb8668a9a2e5fd5
 3. Extract the contents of the downloaded ZIP file into the `BepInEx/plugins` directory of your Lethal Company installation.
 4. Launch the game and enjoy the mod!
 
