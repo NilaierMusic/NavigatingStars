@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace NavigatingStars
 {
-    [BepInPlugin("NavigatingStars", "NavigatingStars", "0.0.1")]
+    [BepInPlugin("NavigatingStars", "NavigatingStars", "0.0.3")]
     public class Plugin : BaseUnityPlugin
     {
         private Harmony harmony = new Harmony("NavigatingStars");

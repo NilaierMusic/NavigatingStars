@@ -12,7 +12,7 @@ namespace LethalCompany.Mods
         private Key toggleKey;
         private Vector3 mainEntrancePosition;
         private Vector3 previousNearestNodePosition;
-        private GameObject player;
+        private GameObject playerObject;
         private const float SimplifyTolerance = 0.01f;
         private bool isLineDrawn = false;
         private Coroutine drawLineCoroutine;
@@ -31,7 +31,6 @@ namespace LethalCompany.Mods
             toggleKey = PluginConfig.ToggleKey.Value;
             navMeshManager = new NavMeshManager();
             aiNodeManager = new AINodeManager();
-            player = navMeshManager.FindPlayer();
         }
 
         private void Update()
@@ -39,9 +38,12 @@ namespace LethalCompany.Mods
             var localPlayerController = StartOfRound.Instance?.localPlayerController;
             bool isPlayerOutside = IsPlayerOutside(localPlayerController);
 
+            // Update the AI nodes reference based on the player's location
+            aiNodeManager.UpdateAINodesReference(isPlayerOutside);
+
             if (isLineDrawn)
             {
-                float distanceToEndNodeSqr = Vector3.Distance(player.transform.position, mainEntrancePosition);
+                float distanceToEndNodeSqr = Vector3.Distance(playerObject.transform.position, mainEntrancePosition);
                 if (distanceToEndNodeSqr <= PluginConfig.AutoClearDistance.Value * PluginConfig.AutoClearDistance.Value)
                 {
                     ClearLine();
@@ -57,7 +59,15 @@ namespace LethalCompany.Mods
             if (Keyboard.current[toggleKey].wasPressedThisFrame)
             {
                 Debug.Log("Toggle key pressed!");
-                if (player != null)
+                // Move the player finding logic to the Update method
+                playerObject = navMeshManager.FindPlayer();
+
+                if (playerObject == null)
+                {
+                    return; // Exit the Update method if the player is not found
+                }
+
+                if (playerObject != null)
                 {
                     if (isLineDrawn)
                     {
@@ -68,7 +78,7 @@ namespace LethalCompany.Mods
                     else
                     {
                         isPlayerOutside = IsPlayerOutside();
-                        Vector3 playerPosition = player.transform.position;
+                        Vector3 playerPosition = playerObject.transform.position;
                         mainEntrancePosition = RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(true, isPlayerOutside), default(NavMeshHit), 5f, -1);
                         Debug.Log("Main Entrance Position: " + mainEntrancePosition);
                         NavMeshPath path = new NavMeshPath();
@@ -105,7 +115,14 @@ namespace LethalCompany.Mods
 
         private IEnumerator DrawLineAnimation(NavMeshPath path)
         {
-            Vector3 playerPosition = player.transform.position;
+            // Check if the player object is null before using it
+            if (playerObject == null)
+            {
+                Debug.LogWarning("Player not found!");
+                yield break; // Exit the coroutine if the player is not found
+            }
+
+            Vector3 playerPosition = playerObject.transform.position;
             Vector3[] pathCorners = path.corners;
             float segmentDuration = 0.1f;
             float animationDuration = (pathCorners.Length - 1) * segmentDuration;
@@ -160,8 +177,16 @@ namespace LethalCompany.Mods
         {
             if (isLineDrawn)
             {
-                Vector3 playerPosition = player.transform.position;
+                // Check if the player object is null before using it
+                if (playerObject == null)
+                {
+                    Debug.LogWarning("Player not found!");
+                    return;
+                }
+
+                Vector3 playerPosition = playerObject.transform.position;
                 Vector3 nearestNodePosition = aiNodeManager.FindNearestAINodePosition(playerPosition);
+
                 if (nearestNodePosition != previousNearestNodePosition)
                 {
                     Debug.Log("Nearest AI Node Position: " + nearestNodePosition);
@@ -172,6 +197,14 @@ namespace LethalCompany.Mods
                 if (pathFound)
                 {
                     Vector3[] pathCorners = new Vector3[lineRenderer.positionCount];
+
+                    // Add error handling for path finding
+                    if (pathCorners == null || pathCorners.Length == 0)
+                    {
+                        Debug.LogError("Invalid path corners found!");
+                        return;
+                    }
+
                     int pathCornerCount = path.GetCornersNonAlloc(pathCorners);
                     lineRenderer.positionCount = pathCornerCount + 1;
                     lineRenderer.SetPosition(0, playerPosition);
@@ -180,6 +213,10 @@ namespace LethalCompany.Mods
                         lineRenderer.SetPosition(i + 1, pathCorners[i]);
                     }
                     lineRenderer.Simplify(SimplifyTolerance);
+                }
+                else
+                {
+                    Debug.LogWarning("No valid path found!");
                 }
             }
         }
@@ -207,14 +244,14 @@ namespace LethalCompany.Mods
             var localPlayer = StartOfRound.Instance?.localPlayerController;
             if (localPlayer != null)
             {
-                GameObject player = localPlayer.gameObject;
-                navMeshAgent = player.GetComponentInChildren<NavMeshAgent>();
+                GameObject playerObject = localPlayer.gameObject;
+                navMeshAgent = playerObject.GetComponentInChildren<NavMeshAgent>();
                 if (navMeshAgent == null)
                 {
-                    CreateNavMeshAgent(player);
+                    CreateNavMeshAgent(playerObject);
                 }
-                Debug.Log("Player found: " + player.name);
-                return player;
+                Debug.Log("Player found: " + playerObject.name);
+                return playerObject;
             }
             else
             {
@@ -223,10 +260,10 @@ namespace LethalCompany.Mods
             }
         }
 
-        private void CreateNavMeshAgent(GameObject player)
+        private void CreateNavMeshAgent(GameObject playerObject)
         {
             GameObject navMeshAgentObject = new GameObject("NavMeshAgent");
-            navMeshAgentObject.transform.SetParent(player.transform);
+            navMeshAgentObject.transform.SetParent(playerObject.transform);
             navMeshAgent = navMeshAgentObject.AddComponent<NavMeshAgent>();
         }
 
@@ -268,7 +305,7 @@ namespace LethalCompany.Mods
         {
             if (allAINodes == null || allAINodes.Length == 0)
             {
-                // If no AI nodes are found, return the player's position as a fallback
+                // If no AI nodes are found, return the playerObject's position as a fallback
                 return position;
             }
 

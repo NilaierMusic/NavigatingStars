@@ -13,7 +13,7 @@ Navigating Stars is a client-side mod for the game Lethal Company. This mod allo
 ## Installation
 
 1. Make sure you have BepInEx installed for Lethal Company.
-2. Download the latest release of the Navigating Stars mod from the [Thunderstore,](https://thunderstore.io/c/lethal-company/p/Nilaier/NavigatingStars/) NexusMods, or [Releases page.](https://github.com/NilaierMusic/NavigatingStars/releases)
+2. Download the latest release of the Navigating Stars mod from the [Thunderstore,](https://thunderstore.io/c/lethal-company/p/Nilaier/NavigatingStars/) [NexusMods,](https://www.nexusmods.com/lethalcompany/mods/199) or [Releases page.](https://github.com/NilaierMusic/NavigatingStars/releases)
 3. Extract the contents of the downloaded ZIP file into the `BepInEx/plugins` directory of your Lethal Company installation.
 4. Launch the game and enjoy the mod!
 
@@ -24,7 +24,7 @@ The mod provides the following configuration options:
 - `ToggleKey`: The key to press for drawing the line (default: 'T').
 - `LineWidth`: The width of the drawn line as a float (default: 0.1).
 - `LineColor`: The color of the drawn line in HEX (default: green).
-- `AutoClearDistance`: The distance threshold for auto-clearing the line when the player is near the main entrance (default: 5).
+- `AutoClearDistance`: The distance threshold for auto-clearing the line when the player is near the main entrance (default: 2.5).
 - `DynamicLineRedraw`: Determines whether the line should be redrawn dynamically based on the player's position (default: true).
 
 You can modify these values in the configuration file located at `BepInEx/config/NavigatingStars.cfg`.
@@ -36,6 +36,23 @@ You can modify these values in the configuration file located at `BepInEx/config
 3. A brief animation of a line being drawn will play, indicating the navigable path.
 4. Press the toggle key again to clear the line.
 5. The line will also be cleared automatically when you reach your destination or a new map is loaded.
+
+## Incompatible Modded Moons:
+- Chiron TL-34
+- Circus
+- Clock Town
+- Crypt
+- Dragon Roost Island
+- H410 Array
+- Harloth
+- Kamino
+- Luke 78
+- Mayhem Temple
+- Nostromo
+- Peach's Castle
+- RMS Titanic
+- The Moon
+- [SCRAPED] Wasteland
 
 ## Known Issues
 

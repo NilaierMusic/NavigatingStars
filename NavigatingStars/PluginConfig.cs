@@ -50,7 +50,7 @@ namespace LethalCompany.Mods
             // Bind the DynamicLineRedraw configuration entry
             // Default value: false
             // Description: Determines whether the line should be redrawn dynamically based on the player's position
-            DynamicLineRedraw = config.Bind("General", "DynamicLineRedraw", false, "Determines whether the line should be redrawn dynamically based on the player's position.");
+            DynamicLineRedraw = config.Bind("General", "DynamicLineRedraw", true, "Determines whether the line should be redrawn dynamically based on the player's position.");
         }
     }
 }
