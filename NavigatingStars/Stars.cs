@@ -3,26 +3,31 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
+using System.Reflection;
 
 namespace LethalCompany.Mods
 {
     public class PathDrawer : MonoBehaviour
     {
-        private LineRenderer lineRenderer;
+        private SoundManager? soundManager;
+        private LineRenderer? lineRenderer;
         private Key toggleKey;
         private Vector3 mainEntrancePosition;
         private Vector3 previousNearestNodePosition;
-        private GameObject playerObject;
+        private GameObject? playerObject;
         private const float SimplifyTolerance = 0.01f;
         private bool isLineDrawn = false;
-        private Coroutine drawLineCoroutine;
-        private NavMeshManager navMeshManager;
-        private AINodeManager aiNodeManager;
+        private Coroutine? drawLineCoroutine;
+        private NavMeshManager? navMeshManager;
+        private AINodeManager? aiNodeManager;
 
         private void Start()
         {
             lineRenderer = gameObject.AddComponent<LineRenderer>();
-            lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+            lineRenderer.material = new Material(Shader.Find("Sprites/Default"))
+            {
+                color = PluginConfig.LineColor.Value
+            };
             lineRenderer.startColor = PluginConfig.LineColor.Value;
             lineRenderer.endColor = PluginConfig.LineColor.Value;
             lineRenderer.startWidth = PluginConfig.LineWidth.Value;
@@ -31,12 +36,25 @@ namespace LethalCompany.Mods
             toggleKey = PluginConfig.ToggleKey.Value;
             navMeshManager = new NavMeshManager();
             aiNodeManager = new AINodeManager();
+            soundManager = FindObjectOfType<SoundManager>();
+            if (soundManager == null)
+            {
+                GameObject soundManagerObj = new GameObject("SoundManager");
+                soundManager = soundManagerObj.AddComponent<SoundManager>();
+            }
+            // Configure sound settings based on configuration values
+            if (soundManager != null)
+            {
+                soundManager.EnableSoundEffects = PluginConfig.EnableSoundEffects.Value;
+                soundManager.SoundEffectVolume = PluginConfig.SoundEffectVolume.Value;
+                soundManager.Enable3DSound = PluginConfig.Enable3DSound.Value;
+            }
         }
 
         private void Update()
         {
             var localPlayerController = StartOfRound.Instance?.localPlayerController;
-            bool isPlayerOutside = IsPlayerOutside(localPlayerController);
+            bool isPlayerOutside = localPlayerController != null && !localPlayerController.isInsideFactory;
 
             // Update the AI nodes reference based on the player's location
             aiNodeManager.UpdateAINodesReference(isPlayerOutside);
@@ -80,7 +98,7 @@ namespace LethalCompany.Mods
                         isPlayerOutside = IsPlayerOutside();
                         Vector3 playerPosition = playerObject.transform.position;
                         mainEntrancePosition = RoundManager.Instance.GetNavMeshPosition(RoundManager.FindMainEntrancePosition(true, isPlayerOutside), default(NavMeshHit), 5f, -1);
-                        Debug.Log("Main Entrance Position: " + mainEntrancePosition);
+                        Debug.Log($"Main Entrance Position: {mainEntrancePosition}");
                         NavMeshPath path = new NavMeshPath();
                         bool pathFound = NavMesh.CalculatePath(playerPosition, mainEntrancePosition, NavMesh.AllAreas, path);
                         if (pathFound)
@@ -98,6 +116,13 @@ namespace LethalCompany.Mods
                         else
                         {
                             Debug.LogWarning("No valid path found!");
+
+                            // Display a tip when no valid path is found
+                            HUDManager hudManager = FindObjectOfType<HUDManager>();
+                            if (hudManager != null)
+                            {
+                                hudManager.DisplayTip("Path Not Found", "No valid path to the main entrance was found. Please try again or contact support.", true);
+                            }
                         }
                     }
                 }
@@ -106,11 +131,6 @@ namespace LethalCompany.Mods
                     Debug.LogWarning("Player not found!");
                 }
             }
-        }
-
-        private bool IsPlayerOutside(PlayerControllerB localPlayerController)
-        {
-            return localPlayerController != null && !localPlayerController.isInsideFactory;
         }
 
         private IEnumerator DrawLineAnimation(NavMeshPath path)
@@ -132,8 +152,14 @@ namespace LethalCompany.Mods
             lineRenderer.SetPositions(pathCorners);
             lineRenderer.enabled = true;
 
-            Vector3[] currentPositions = new Vector3[pathCorners.Length + 1];
-            int currentSegmentCount = 0;
+            // Draw the first segment immediately
+            Vector3[] currentPositions = new Vector3[2];
+            currentPositions[0] = playerPosition;
+            currentPositions[1] = pathCorners[0];
+            lineRenderer.positionCount = 2;
+            lineRenderer.SetPositions(currentPositions);
+
+            int currentSegmentCount = 1;
 
             while (elapsedTime < animationDuration)
             {
@@ -145,10 +171,18 @@ namespace LethalCompany.Mods
                 if (newSegmentCount != currentSegmentCount)
                 {
                     currentSegmentCount = newSegmentCount;
+                    currentPositions = new Vector3[currentSegmentCount + 1];
                     currentPositions[0] = playerPosition;
-                    Array.Copy(pathCorners, 0, currentPositions, 1, currentSegmentCount - 1);
-                    lineRenderer.positionCount = currentSegmentCount;
+                    Array.Copy(pathCorners, 0, currentPositions, 1, currentSegmentCount);
+                    lineRenderer.positionCount = currentSegmentCount + 1;
                     lineRenderer.SetPositions(currentPositions);
+
+                    // Play the sound effect at the current segment position starting from the second segment
+                    if (currentSegmentCount > 1 && PluginConfig.EnableSoundEffects.Value)
+                    {
+                        Vector3 segmentPosition = currentPositions[currentSegmentCount];
+                        soundManager.PlaySound(segmentPosition);
+                    }
                 }
 
                 elapsedTime += Time.deltaTime;
@@ -235,11 +269,104 @@ namespace LethalCompany.Mods
         }
     }
 
+    public class SoundManager : MonoBehaviour
+    {
+        public static SoundManager? Instance { get; private set; }
+
+        private AudioSource? audioSource;
+        private AudioClip? lineDrawingSound;
+
+        public bool EnableSoundEffects { get; set; }
+        public float SoundEffectVolume { get; set; }
+        public bool Enable3DSound { get; set; }
+
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+
+            audioSource = gameObject.AddComponent<AudioSource>();
+            LoadAudioResources();
+        }
+
+        private void LoadAudioResources()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            using (Stream stream = assembly.GetManifestResourceStream("NavigatingStars.Resources.line_drawing_sound.wav"))
+            {
+                if (stream != null)
+                {
+                    int samples = (int)(stream.Length / 2);
+                    float[] samplesData = new float[samples];
+
+                    byte[] buffer = new byte[2];
+                    for (int i = 0; i < samples; i++)
+                    {
+                        stream.Read(buffer, 0, 2);
+                        short sample = BitConverter.ToInt16(buffer, 0);
+                        samplesData[i] = sample / 32768.0f;
+                    }
+
+                    lineDrawingSound = AudioClip.Create("LineDrawingSound", samples, 1, 22050, false);
+                    lineDrawingSound.SetData(samplesData, 0);
+                }
+                else
+                {
+                    Debug.LogError("Failed to load line drawing sound resource.");
+                }
+            }
+        }
+
+        private AudioClip CreateAudioClip(byte[] audioData, string name)
+        {
+            // Calculate the number of samples and channels from the audio data
+            int channels = 1; // Assuming mono audio
+            int freq = 22050; // Assuming 22050 Hz sample rate
+            int samples = audioData.Length / 2; // 16-bit audio, 2 bytes per sample
+
+            // Create the AudioClip with the calculated parameters
+            AudioClip clip = AudioClip.Create(name, samples, channels, freq, false);
+
+            // Convert byte[] to float[]
+            float[] samplesData = new float[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                short sample = BitConverter.ToInt16(audioData, i * 2);
+                samplesData[i] = sample / 32768.0f;
+            }
+
+            // Set the audio data in the AudioClip
+            clip.SetData(samplesData, 0);
+
+            return clip;
+        }
+
+        public void PlaySound(Vector3 position)
+        {
+            if (EnableSoundEffects && lineDrawingSound != null)
+            {
+                audioSource.Stop();
+                audioSource.clip = lineDrawingSound;
+                audioSource.spatialBlend = Enable3DSound ? 1f : 0f;
+                audioSource.volume = SoundEffectVolume;
+                audioSource.transform.position = position;
+                audioSource.Play();
+            }
+        }
+    }
+
     public class NavMeshManager
     {
-        private NavMeshAgent navMeshAgent;
+        private NavMeshAgent? navMeshAgent;
 
-        public GameObject FindPlayer()
+        public GameObject? FindPlayer()
         {
             var localPlayer = StartOfRound.Instance?.localPlayerController;
             if (localPlayer != null)
@@ -280,41 +407,35 @@ namespace LethalCompany.Mods
 
     public class AINodeManager
     {
-        private GameObject[] allAINodes;
+        private GameObject[] insideAINodes;
+        private GameObject[] outsideAINodes;
         private bool isPlayerOutside;
+
+        public AINodeManager()
+        {
+            // Load both inside and outside AI nodes at the start
+            insideAINodes = GameObject.FindGameObjectsWithTag("AINode");
+            outsideAINodes = GameObject.FindGameObjectsWithTag("OutsideAINode");
+            Debug.Log("Inside AI Nodes found: " + insideAINodes.Length);
+            Debug.Log("Outside AI Nodes found: " + outsideAINodes.Length);
+        }
 
         public void UpdateAINodesReference(bool isPlayerOutside)
         {
-            if (this.isPlayerOutside != isPlayerOutside)
-            {
-                this.isPlayerOutside = isPlayerOutside;
-                if (isPlayerOutside)
-                {
-                    allAINodes = GameObject.FindGameObjectsWithTag("OutsideAINode");
-                    Debug.Log("Outside AI Nodes found: " + allAINodes.Length);
-                }
-                else
-                {
-                    allAINodes = GameObject.FindGameObjectsWithTag("AINode");
-                    Debug.Log("Inside AI Nodes found: " + allAINodes.Length);
-                }
-            }
+            this.isPlayerOutside = isPlayerOutside;
         }
 
         public Vector3 FindNearestAINodePosition(Vector3 position)
         {
-            if (allAINodes == null || allAINodes.Length == 0)
+            GameObject[] aiNodes = isPlayerOutside ? outsideAINodes : insideAINodes;
+
+            if (aiNodes == null || aiNodes.Length == 0)
             {
                 // If no AI nodes are found, return the playerObject's position as a fallback
                 return position;
             }
 
-            GameObject nearestNode = allAINodes.Aggregate((minNode, node) =>
-            {
-                float minDistance = Vector3.Distance(position, minNode.transform.position);
-                float currentDistance = Vector3.Distance(position, node.transform.position);
-                return currentDistance < minDistance ? node : minNode;
-            });
+            GameObject nearestNode = aiNodes.OrderBy(node => Vector3.Distance(position, node.transform.position)).First();
 
             return nearestNode.transform.position;
         }

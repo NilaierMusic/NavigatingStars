@@ -7,52 +7,41 @@ using UnityEngine;
 
 namespace NavigatingStars
 {
-    [BepInPlugin("NavigatingStars", "NavigatingStars", "0.0.3")]
+    [BepInPlugin(Plugin.PLUGIN_GUID, Plugin.PLUGIN_NAME, Plugin.PLUGIN_VERSION)]
     public class Plugin : BaseUnityPlugin
     {
-        private Harmony harmony = new Harmony("NavigatingStars");
+        public const string PLUGIN_GUID = "com.nilaier.navigatingstars";
+        public const string PLUGIN_NAME = "Navigating Stars";
+        public const string PLUGIN_VERSION = "0.0.4";
+
+        private Harmony harmony = new Harmony(PLUGIN_GUID);
 
         private void Awake()
         {
-            // Patch all methods in the Plugin class using Harmony
             this.harmony.PatchAll(typeof(Plugin));
-
-            // Bind the plugin configuration to the BepInEx configuration
             PluginConfig.BindConfig(Config);
-
-            // Log a message to indicate that the plugin is loaded
-            this.Logger.LogInfo((object)"Plugin NavigatingStars is loaded!");
-
-            // Subscribe to the sceneLoaded event to perform actions when a scene is loaded
+            this.Logger.LogInfo($"Plugin {PLUGIN_NAME} v{PLUGIN_VERSION} is loaded!");
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Define an array of excluded scene names
-            string[] excludedScenes = { "InitScene", "InitSceneLaunchOptions", "MainMenu", "SampleSceneRelay", "InitSceneLANMode", "CompanyBuilding" };
+            string[] excludedScenes = { "InitScene", "InitSceneLaunchOptions", "InitSceneLANMode", "ColdOpen1", "MainMenu", "SampleSceneRelay", "CompanyBuilding" };
 
-            // Check if the loaded scene is in the excluded scenes array
             if (Array.IndexOf(excludedScenes, scene.name) != -1)
             {
-                // If the scene is excluded, return and do not execute further code
                 return;
             }
 
-            // Find the main entrance script using the RoundManager
             EntranceTeleport mainEntrance = RoundManager.FindMainEntranceScript(true);
 
             if (mainEntrance != null)
             {
-                // Iterate through all player controllers in the scene
-                foreach (PlayerControllerB player in UnityEngine.Object.FindObjectsOfType<PlayerControllerB>())
+                PlayerControllerB localPlayer = PlayerUtils.GetPlayerControllerB();
+
+                if (localPlayer != null && !localPlayer.gameObject.TryGetComponent(out PathDrawer pathDrawer))
                 {
-                    // Check if the player controller does not have a PathDrawer component
-                    if (((Component)player).GetComponent<PathDrawer>() == null)
-                    {
-                        // Add a PathDrawer component to the player controller's game object
-                        ((Component)player).gameObject.AddComponent<PathDrawer>();
-                    }
+                    localPlayer.gameObject.AddComponent<PathDrawer>();
                 }
             }
         }
@@ -61,24 +50,44 @@ namespace NavigatingStars
         [HarmonyPostfix]
         public static void PlayerUpdate(PlayerControllerB __instance)
         {
-            // Check if the player controller does not have a PathDrawer component
-            if (((Component)__instance).GetComponent<PathDrawer>() == null)
+            if (__instance == PlayerUtils.GetPlayerControllerB() && !__instance.gameObject.TryGetComponent(out PathDrawer pathDrawer))
             {
-                // Add a PathDrawer component to the player controller's game object
-                ((Component)__instance).gameObject.AddComponent<PathDrawer>();
+                __instance.gameObject.AddComponent<PathDrawer>();
             }
         }
 
         [HarmonyPatch(typeof(StartOfRound), "ResetPlayersLoadedValueClientRpc")]
         [HarmonyPostfix]
-        public static void LoadNewMap()
+        public static void ClearPathDrawersOnNewMap()
         {
-            // Iterate through all PathDrawer components in the scene
-            foreach (PathDrawer pathDrawer in UnityEngine.Object.FindObjectsOfType<PathDrawer>())
+            PlayerControllerB localPlayer = PlayerUtils.GetPlayerControllerB();
+
+            if (localPlayer != null && localPlayer.gameObject.TryGetComponent(out PathDrawer pathDrawer))
             {
-                // Clear the line drawn by each PathDrawer component
                 pathDrawer.ClearLine();
             }
+        }
+    }
+
+    public static class PlayerUtils
+    {
+        private static PlayerControllerB? localPlayerController;
+
+        public static PlayerControllerB? GetPlayerControllerB()
+        {
+            if (localPlayerController == null)
+            {
+                if (GameNetworkManager.Instance != null)
+                {
+                    localPlayerController = GameNetworkManager.Instance.localPlayerController;
+                    Debug.Log($"[{Plugin.PLUGIN_NAME}] GetPlayerControllerB returned: {localPlayerController?.name ?? "null"}");
+                }
+                else
+                {
+                    Debug.LogError($"[{Plugin.PLUGIN_NAME}] GameNetworkManager.Instance is null.");
+                }
+            }
+            return localPlayerController;
         }
     }
 }
